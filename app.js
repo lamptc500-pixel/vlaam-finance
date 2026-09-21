@@ -60,9 +60,11 @@ let lastSyncAt = null;
 let isLoading = false;
 let data = {
   autoSave: { enabled: true, amount: 1000000 },
+  openingBalance: 0,
   categories: [],
   transactions: [],
-  savings: []
+  savings: [],
+  debts: []
 };
 
 const cfg = window.VLAAM_SUPABASE || {};
@@ -111,10 +113,13 @@ function renderAll() {
   renderCategories();
   renderBudget();
   renderSavings();
+  renderDebts();
   renderReports();
   populateCategorySelects();
   document.getElementById('autoSaveToggle').checked = !!data.autoSave.enabled;
   document.getElementById('autoSaveValue').textContent = fmt(data.autoSave.amount);
+  const openingBalanceText = document.getElementById('openingBalanceText');
+  if (openingBalanceText) openingBalanceText.textContent = fmt(data.openingBalance);
   updateLegacyInfo();
 }
 
@@ -125,12 +130,20 @@ function renderDashboard() {
   const expense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
   const savings = data.savings.reduce((s, g) => s + Number(g.current), 0);
   const savingsTarget = data.savings.reduce((s, g) => s + Number(g.target), 0);
-  const balance = data.transactions.reduce((s, t) => s + (t.type === 'income' ? 1 : -1) * Number(t.amount), 0);
+  const transactionNet = data.transactions.reduce((s, t) => s + (t.type === 'income' ? 1 : -1) * Number(t.amount), 0);
+  const balance = Number(data.openingBalance || 0) + transactionNet;
+  const openDebts = data.debts.filter(d => d.status === 'open');
+  const receivable = openDebts.filter(d => d.kind === 'receivable').reduce((s, d) => s + Number(d.amount), 0);
+  const payable = openDebts.filter(d => d.kind === 'payable').reduce((s, d) => s + Number(d.amount), 0);
+  const debtNet = receivable - payable;
 
   document.getElementById('monthIncome').textContent = fmt(income);
   document.getElementById('monthExpense').textContent = fmt(expense);
   document.getElementById('totalSavings').textContent = fmt(savings);
   document.getElementById('totalBalance').textContent = fmt(balance);
+  ['receivableTotal','receivableTotalFull'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmt(receivable); });
+  ['payableTotal','payableTotalFull'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmt(payable); });
+  ['debtNetTotal','debtNetTotalFull'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmt(debtNet); });
   document.getElementById('savingRate').textContent = savingsTarget ? `${Math.round(savings / savingsTarget * 100)}% tổng mục tiêu` : 'Chưa có mục tiêu tiết kiệm';
   document.getElementById('chartTotal').textContent = fmt(savings);
 
@@ -226,6 +239,41 @@ function renderSavings() {
   }).join('') || '<p>Chưa có mục tiêu tiết kiệm.</p>';
 }
 
+
+function renderDebts() {
+  const receivableList = document.getElementById('receivableList');
+  const payableList = document.getElementById('payableList');
+  if (!receivableList || !payableList) return;
+
+  const renderDebtCard = d => {
+    const dueText = d.dueDate ? new Date(d.dueDate + 'T00:00:00').toLocaleDateString('vi-VN') : 'Không đặt hạn';
+    const actionText = d.kind === 'receivable' ? 'Đã thu' : 'Đã trả';
+    return `<article class="debt-item">
+      <div class="debt-item-main">
+        <div class="debt-avatar ${d.kind}">${d.kind === 'receivable' ? '↙' : '↗'}</div>
+        <div>
+          <strong>${esc(d.person)}</strong>
+          <small>${d.note ? esc(d.note) : 'Không có ghi chú'} · Hạn: ${dueText}</small>
+        </div>
+      </div>
+      <div class="debt-item-side">
+        <strong class="debt-amount ${d.kind}">${fmt(d.amount)}</strong>
+        <div class="debt-actions">
+          <button class="mini-btn settle" onclick="settleDebt('${d.id}')">${actionText}</button>
+          <button class="mini-btn danger" onclick="deleteDebt('${d.id}')" title="Xóa">×</button>
+        </div>
+      </div>
+    </article>`;
+  };
+
+  const open = data.debts.filter(d => d.status === 'open');
+  const receivables = open.filter(d => d.kind === 'receivable').sort((a,b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+  const payables = open.filter(d => d.kind === 'payable').sort((a,b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+
+  receivableList.innerHTML = receivables.map(renderDebtCard).join('') || '<p class="empty-note">Chưa có khoản phải thu.</p>';
+  payableList.innerHTML = payables.map(renderDebtCard).join('') || '<p class="empty-note">Chưa có khoản phải trả.</p>';
+}
+
 function renderReports() {
   const mk = monthKey(today());
   const ex = data.transactions.filter(t => t.type === 'expense' && monthKey(t.date) === mk);
@@ -270,7 +318,7 @@ async function ensureDefaults() {
   const { data: settingRows, error: settingErr } = await sb.from('settings').select('user_id').eq('user_id', uid).limit(1);
   if (settingErr) throw settingErr;
   if (!settingRows.length) {
-    const { error } = await sb.from('settings').insert({ user_id: uid, auto_save_enabled: true, auto_save_amount: 1000000 });
+    const { error } = await sb.from('settings').insert({ user_id: uid, auto_save_enabled: true, auto_save_amount: 1000000, opening_balance: 0 });
     if (error) throw error;
   }
 }
@@ -281,19 +329,33 @@ async function loadRemoteData({ silent = false } = {}) {
   if (!silent) setSyncStatus('Đang đồng bộ…', 'pending');
   try {
     const uid = session.user.id;
-    const [catsRes, txRes, goalsRes, settingsRes] = await Promise.all([
+    const [catsRes, txRes, goalsRes, debtsRes, settingsRes] = await Promise.all([
       sb.from('categories').select('id,name,icon,type,budget,created_at').eq('user_id', uid).order('created_at', { ascending: true }),
       sb.from('transactions').select('id,transaction_date,description,category_id,type,amount,created_at').eq('user_id', uid).order('transaction_date', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('savings_goals').select('id,name,target,current,deadline,icon,created_at').eq('user_id', uid).order('created_at', { ascending: true }),
-      sb.from('settings').select('auto_save_enabled,auto_save_amount').eq('user_id', uid).maybeSingle()
+      sb.from('debts').select('id,kind,person,amount,note,due_date,status,created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+      sb.from('settings').select('auto_save_enabled,auto_save_amount,opening_balance').eq('user_id', uid).maybeSingle()
     ]);
-    const firstError = [catsRes.error, txRes.error, goalsRes.error, settingsRes.error].find(Boolean);
+    const firstError = [catsRes.error, txRes.error, goalsRes.error, debtsRes.error, settingsRes.error].find(Boolean);
     if (firstError) throw firstError;
 
     data.categories = (catsRes.data || []).map(c => ({ id: c.id, name: normalizeText(c.name), icon: c.icon, type: c.type, budget: Number(c.budget || 0), createdAt: c.created_at || '' }));
     data.transactions = (txRes.data || []).map(t => ({ id: t.id, date: t.transaction_date, description: normalizeText(t.description), categoryId: t.category_id, type: t.type, amount: Number(t.amount), createdAt: t.created_at || '' }));
     data.savings = (goalsRes.data || []).map(g => ({ id: g.id, name: normalizeText(g.name), target: Number(g.target), current: Number(g.current), deadline: g.deadline || '', icon: g.icon || '🌱', createdAt: g.created_at || '' }));
-    if (settingsRes.data) data.autoSave = { enabled: !!settingsRes.data.auto_save_enabled, amount: Number(settingsRes.data.auto_save_amount || 0) };
+    data.debts = (debtsRes.data || []).map(d => ({
+      id: d.id,
+      kind: d.kind,
+      person: normalizeText(d.person),
+      amount: Number(d.amount),
+      note: normalizeText(d.note || ''),
+      dueDate: d.due_date || '',
+      status: d.status || 'open',
+      createdAt: d.created_at || ''
+    }));
+    if (settingsRes.data) {
+      data.autoSave = { enabled: !!settingsRes.data.auto_save_enabled, amount: Number(settingsRes.data.auto_save_amount || 0) };
+      data.openingBalance = Number(settingsRes.data.opening_balance || 0);
+    }
 
     renderAll();
     lastSyncAt = new Date();
@@ -327,6 +389,7 @@ function startRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, handleChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, handleChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'savings_goals' }, handleChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'debts' }, handleChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, handleChange)
     .subscribe(status => {
       if (status === 'SUBSCRIBED') setSyncStatus('Đã đồng bộ', 'online');
@@ -434,6 +497,28 @@ window.addToSaving = async id => {
   showToast('Đã cập nhật tiết kiệm');
 };
 
+
+window.deleteDebt = async id => {
+  if (!confirm('Xóa khoản nợ này?')) return;
+  const { error } = await sb.from('debts').delete().eq('id', id);
+  if (error) return showToast(`Không xóa được: ${error.message}`, 3500);
+  data.debts = data.debts.filter(d => d.id !== id);
+  renderAll();
+  showToast('Đã xóa khoản nợ');
+};
+
+window.settleDebt = async id => {
+  const d = data.debts.find(x => x.id === id);
+  if (!d) return;
+  const msg = d.kind === 'receivable' ? 'Đánh dấu khoản này là đã thu đủ?' : 'Đánh dấu khoản này là đã trả đủ?';
+  if (!confirm(msg)) return;
+  const { error } = await sb.from('debts').update({ status: 'settled', settled_at: new Date().toISOString() }).eq('id', id);
+  if (error) return showToast(`Không cập nhật được: ${error.message}`, 3500);
+  d.status = 'settled';
+  renderAll();
+  showToast(d.kind === 'receivable' ? 'Đã đánh dấu là đã thu' : 'Đã đánh dấu là đã trả');
+};
+
 function showSection(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
   document.getElementById(id).classList.add('active-section');
@@ -454,6 +539,16 @@ function openModal(id) {
     renderCategoryIconPicker();
   }
   if (id === 'savingModal') setFormError('savingError');
+  if (id === 'balanceModal') {
+    setFormError('balanceError');
+    const transactionNet = data.transactions.reduce((s, t) => s + (t.type === 'income' ? 1 : -1) * Number(t.amount), 0);
+    const current = Number(data.openingBalance || 0) + transactionNet;
+    document.getElementById('currentBalanceInput').value = current ? new Intl.NumberFormat('vi-VN').format(Math.round(current)) : '0';
+  }
+  if (id === 'debtModal') {
+    setFormError('debtError');
+    document.getElementById('debtDueDate').value = '';
+  }
 }
 
 function getLegacyData() {
@@ -604,10 +699,18 @@ function bindUI() {
   document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => b.closest('.modal').classList.remove('open')));
   document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
-  ['transactionAmount', 'savingTarget', 'savingCurrent'].forEach(id => bindMoneyInput(document.getElementById(id)));
+  ['transactionAmount', 'savingTarget', 'savingCurrent', 'currentBalanceInput', 'debtAmount'].forEach(id => bindMoneyInput(document.getElementById(id)));
   renderCategoryIconPicker();
 
   document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', populateCategorySelects));
+  document.querySelectorAll('input[name="debtType"]').forEach(r => r.addEventListener('change', () => {
+    const kind = document.querySelector('input[name="debtType"]:checked')?.value || 'receivable';
+    const label = document.getElementById('debtPersonLabel');
+    if (!label) return;
+    label.childNodes[0].nodeValue = kind === 'receivable' ? 'Người đang nợ bạn' : 'Bạn đang nợ ai';
+    const input = document.getElementById('debtPerson');
+    if (input) input.placeholder = kind === 'receivable' ? 'Ví dụ: Minh' : 'Ví dụ: Ngân hàng / Lan';
+  }));
 
   document.getElementById('transactionForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -642,6 +745,55 @@ function bindUI() {
     document.getElementById('transactionModal').classList.remove('open');
     await loadRemoteData({ silent: true });
     showToast('Đã thêm giao dịch');
+  });
+
+
+  document.getElementById('balanceForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    setFormError('balanceError');
+    const current = parseMoneyInput(document.getElementById('currentBalanceInput').value);
+    if (current < 0 || !Number.isFinite(current)) return setFormError('balanceError', 'Số tiền không hợp lệ.');
+    const transactionNet = data.transactions.reduce((s, t) => s + (t.type === 'income' ? 1 : -1) * Number(t.amount), 0);
+    const openingBalance = current - transactionNet;
+    e.submitter.disabled = true;
+    const { error } = await sb.from('settings').update({ opening_balance: openingBalance }).eq('user_id', session.user.id);
+    e.submitter.disabled = false;
+    if (error) return setFormError('balanceError', `Không cập nhật được số dư: ${error.message}`);
+    data.openingBalance = openingBalance;
+    document.getElementById('balanceModal').classList.remove('open');
+    renderAll();
+    showToast('Đã cập nhật tiền hiện có');
+  });
+
+  document.getElementById('debtForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    setFormError('debtError');
+    const kind = document.querySelector('input[name="debtType"]:checked')?.value || 'receivable';
+    const person = normalizeText(document.getElementById('debtPerson').value.trim());
+    const amount = parseMoneyInput(document.getElementById('debtAmount').value);
+    const note = normalizeText(document.getElementById('debtNote').value.trim());
+    const dueDate = document.getElementById('debtDueDate').value || null;
+    if (!person) return setFormError('debtError', kind === 'receivable' ? 'Vui lòng nhập tên người đang nợ bạn.' : 'Vui lòng nhập tên người/tổ chức bạn đang nợ.');
+    if (!amount || amount <= 0) return setFormError('debtError', 'Số tiền phải lớn hơn 0.');
+
+    const payload = {
+      user_id: session.user.id,
+      kind,
+      person,
+      amount,
+      note: note || null,
+      due_date: dueDate,
+      status: 'open'
+    };
+    e.submitter.disabled = true;
+    const { error } = await sb.from('debts').insert(payload);
+    e.submitter.disabled = false;
+    if (error) return setFormError('debtError', `Không lưu được khoản nợ: ${error.message}`);
+    e.target.reset();
+    document.querySelector('input[name="debtType"][value="receivable"]').checked = true;
+    document.getElementById('debtModal').classList.remove('open');
+    await loadRemoteData({ silent: true });
+    showToast(kind === 'receivable' ? 'Đã thêm khoản phải thu' : 'Đã thêm khoản phải trả');
   });
 
   document.getElementById('categoryForm').addEventListener('submit', async e => {
