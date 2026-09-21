@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F7F8F3" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="description" content="vlaam Finance — quản lý tài chính cá nhân và đồng bộ đa thiết bị." />
+  <title>vlaam Finance — Quản lý tài chính cá nhân</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="auth-gate" id="authGate">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark large" aria-hidden="true"></div>
+        <div>
+          <h1>vlaam Finance</h1>
+          <p>Tài chính an yên hơn — đồng bộ trên mọi thiết bị.</p>
+        </div>
+      </div>
+
+      <div class="setup-warning" id="setupWarning" hidden>
+        <strong>Chưa kết nối Supabase</strong>
+        <p>Mở file <code>supabase-config.js</code>, điền Project URL và Publishable Key rồi tải lại trang.</p>
+      </div>
+
+      <div id="authForms">
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab active" id="loginTab" type="button">Đăng nhập</button>
+          <button class="auth-tab" id="signupTab" type="button">Tạo tài khoản</button>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+          <label>Email<input id="loginEmail" type="email" autocomplete="email" required placeholder="vlaam@example.com" /></label>
+          <label>Mật khẩu<input id="loginPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="••••••••" /></label>
+          <button class="btn primary full" type="submit">Đăng nhập</button>
+        </form>
+
+        <form id="signupForm" class="auth-form" hidden>
+          <label>Email<input id="signupEmail" type="email" autocomplete="email" required placeholder="vlaam@example.com" /></label>
+          <label>Mật khẩu<input id="signupPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="Tối thiểu 6 ký tự" /></label>
+          <label>Nhập lại mật khẩu<input id="signupPassword2" type="password" autocomplete="new-password" minlength="6" required placeholder="Nhập lại mật khẩu" /></label>
+          <button class="btn primary full" type="submit">Tạo tài khoản</button>
+        </form>
+        <p class="auth-help">Dùng cùng một tài khoản trên điện thoại và máy tính để xem cùng dữ liệu.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell app-hidden" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>vlaam Finance</h1>
+          <p>Quản lý tài chính</p>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="Điều hướng chính">
+        <button class="nav-item active" data-section="dashboard"><span>⌂</span> Tổng quan</button>
+        <button class="nav-item" data-section="transactions"><span>⇄</span> Giao dịch</button>
+        <button class="nav-item" data-section="categories"><span>▦</span> Danh mục</button>
+        <button class="nav-item" data-section="budget"><span>◔</span> Ngân sách</button>
+        <button class="nav-item" data-section="savings"><span>◎</span> Tiết kiệm</button>
+        <button class="nav-item" data-section="reports"><span>▥</span> Báo cáo</button>
+        <button class="nav-item" data-section="account"><span>⚙</span> Tài khoản</button>
+      </nav>
+
+      <div class="sidebar-quote">
+        <p>“Từng khoản nhỏ hôm nay<br/>nuôi lớn tự do ngày mai.”</p>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Mở menu">☰</button>
+        <div class="welcome-block">
+          <p class="eyebrow">Xin chào,</p>
+          <h2>vlaam <span class="leaf">👋</span></h2>
+          <p class="subheading">Theo dõi dòng tiền rõ ràng, đơn giản và chủ động hơn.</p>
+        </div>
+        <div class="quote-chip" aria-hidden="true">Chi tiêu thông minh · Tương lai nhẹ nhàng</div>
+        <div class="top-actions">
+          <div class="sync-pill" id="syncPill" title="Trạng thái đồng bộ"><span class="sync-dot"></span><span id="syncText">Đang kết nối</span></div>
+          <div class="search-wrap">
+            <span>⌕</span>
+            <input id="searchInput" type="search" placeholder="Tìm giao dịch, danh mục..." />
+          </div>
+          <div class="account-compact">
+            <div class="avatar">VL</div>
+            <div class="account-compact-text"><strong>vlaam</strong><small id="userEmail">—</small></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="offline-banner" id="offlineBanner" hidden>⚠ Đang dùng dữ liệu đã lưu gần nhất. Một số thay đổi có thể chưa đồng bộ.</div>
+
+      <section id="dashboard" class="section active-section">
+        <div class="stats-grid">
+          <article class="stat-card dark balance-card"><div class="stat-icon">◫</div><div><span>Tổng số dư</span><strong id="totalBalance">0 ₫</strong><small>Tổng tài sản khả dụng</small></div></article>
+          <article class="stat-card pale-green income-card"><div class="stat-icon">↓</div><div><span>Thu nhập tháng</span><strong id="monthIncome">0 ₫</strong><small>Tiền vào trong tháng</small></div></article>
+          <article class="stat-card warm expense-card"><div class="stat-icon">↑</div><div><span>Chi tiêu tháng</span><strong id="monthExpense">0 ₫</strong><small>Tiền ra trong tháng</small></div></article>
+          <article class="stat-card blush savings-card"><div class="stat-icon">🌿</div><div><span>Đã tiết kiệm</span><strong id="totalSavings">0 ₫</strong><small id="savingRate">0% thu nhập tháng</small></div></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="card savings-panel">
+            <div class="card-heading"><div><h3>Mục tiêu tiết kiệm</h3><p>Biến kế hoạch hôm nay thành sự chủ động ngày mai.</p></div><button class="btn primary" data-open="savingModal">＋ Thêm mục tiêu</button></div>
+            <div id="savingGoals" class="goal-list"></div>
+          </section>
+
+          <aside class="right-column">
+            <section class="card autosave-card">
+              <div class="autosave-head"><div><h3>Kế hoạch tiết kiệm định kỳ</h3><p>Đặt mức bạn dự kiến dành ra mỗi tháng.</p></div><label class="switch"><input id="autoSaveToggle" type="checkbox"><span></span></label></div>
+              <div class="autosave-amount"><div><strong id="autoSaveValue">1.000.000 ₫</strong><small>/ tháng</small></div><button id="editAutoSave" class="btn ghost">Chỉnh sửa</button></div>
+              <div class="good-note">🍃 <span>Bạn đang xây nền tài chính bền vững.</span></div>
+            </section>
+
+            <section class="card chart-card">
+              <div class="card-heading compact"><div><h3>Phân bổ tiết kiệm</h3><p>Theo các mục tiêu hiện tại</p></div></div>
+              <div class="saving-big"><strong id="chartTotal">0 ₫</strong><span>↗ tích lũy</span></div>
+              <div id="savingsChart" class="simple-chart" aria-label="Biểu đồ tăng trưởng tiết kiệm"></div>
+            </section>
+          </aside>
+        </div>
+
+        <section class="card recent-card">
+          <div class="card-heading compact"><div><h3>Giao dịch gần đây</h3><p>Những khoản thu chi mới nhất.</p></div><button class="text-btn" data-section-jump="transactions">Xem tất cả →</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th>Danh mục</th><th>Loại</th><th>Số tiền</th></tr></thead><tbody id="recentTransactions"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="transactions" class="section">
+        <div class="page-heading"><div><h2>Giao dịch</h2><p>Theo dõi toàn bộ dòng tiền vào và ra.</p></div><button class="btn primary" data-open="transactionModal">＋ Thêm giao dịch</button></div>
+        <section class="card filters"><select id="filterType"><option value="all">Tất cả loại</option><option value="income">Thu</option><option value="expense">Chi</option></select><select id="filterCategory"><option value="all">Tất cả danh mục</option></select><input type="month" id="filterMonth" /><button class="btn ghost" id="clearFilters">Xóa lọc</button></section>
+        <section class="card"><div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th>Danh mục</th><th>Loại</th><th>Số tiền</th><th></th></tr></thead><tbody id="transactionTable"></tbody></table></div></section>
+      </section>
+
+      <section id="budget" class="section"><div class="page-heading"><div><h2>Ngân sách</h2><p>Giữ chi tiêu trong vùng an toàn.</p></div></div><div id="budgetCards" class="budget-grid"></div></section>
+
+      <section id="savings" class="section">
+        <div class="page-heading"><div><h2>Tiết kiệm</h2><p>Theo dõi từng mục tiêu tài chính của bạn.</p></div><button class="btn primary" data-open="savingModal">＋ Thêm mục tiêu</button></div>
+        <div id="savingGoalsFull" class="savings-full-grid"></div>
+      </section>
+
+      <section id="categories" class="section">
+        <div class="page-heading"><div><h2>Danh mục thu chi</h2><p>Thêm và xóa các nhóm phù hợp với cách bạn quản lý tiền.</p></div><button class="btn primary" data-open="categoryModal">＋ Thêm danh mục</button></div>
+        <div class="category-columns">
+          <section class="card"><div class="category-title"><h3>Danh mục thu</h3><span class="badge income">Thu nhập</span></div><div id="incomeCategories" class="category-list"></div></section>
+          <section class="card"><div class="category-title"><h3>Danh mục chi</h3><span class="badge expense">Chi tiêu</span></div><div id="expenseCategories" class="category-list"></div></section>
+        </div>
+      </section>
+
+      <section id="reports" class="section">
+        <div class="page-heading"><div><h2>Báo cáo</h2><p>Nhìn tổng quan để điều chỉnh thói quen tài chính.</p></div></div>
+        <div class="report-grid"><section class="card"><h3>Cơ cấu chi tiêu</h3><div id="expenseBreakdown"></div></section><section class="card"><h3>Tóm tắt</h3><div id="reportSummary" class="summary-list"></div></section></div>
+      </section>
+
+      <section id="account" class="section">
+        <div class="page-heading"><div><h2>Tài khoản & đồng bộ</h2><p>Kiểm tra tài khoản đang dùng và trạng thái dữ liệu.</p></div></div>
+        <div class="account-grid">
+          <section class="card account-card">
+            <h3>Tài khoản</h3>
+            <div class="account-profile"><div class="avatar big">VL</div><div><strong>vlaam</strong><span id="accountEmail">—</span></div></div>
+            <button id="logoutBtn" class="btn ghost full">Đăng xuất</button>
+          </section>
+          <section class="card account-card">
+            <h3>Đồng bộ đám mây</h3>
+            <p>Dữ liệu giao dịch, danh mục, mục tiêu tiết kiệm và cài đặt được lưu trên Supabase.</p>
+            <div class="sync-detail"><span>Trạng thái</span><strong id="accountSyncStatus">Đang kiểm tra…</strong></div>
+            <div class="sync-detail"><span>Lần tải gần nhất</span><strong id="lastSyncText">—</strong></div>
+            <button id="manualSyncBtn" class="btn primary full">↻ Đồng bộ ngay</button>
+          </section>
+          <section class="card account-card">
+            <h3>Dữ liệu cũ trên thiết bị</h3>
+            <p>Nếu bạn đã dùng bản v1 lưu bằng localStorage, có thể nhập dữ liệu đó lên tài khoản này.</p>
+            <button id="legacyImportBtn" class="btn ghost full">Nhập dữ liệu v1 lên cloud</button>
+            <small id="legacyInfo" class="muted-note"></small>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="transactionModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Thêm giao dịch</h3><button class="close-modal" type="button" aria-label="Đóng">×</button></div><form id="transactionForm" novalidate>
+    <div class="segmented"><label><input type="radio" name="type" value="expense" checked><span>Chi tiêu</span></label><label><input type="radio" name="type" value="income"><span>Thu nhập</span></label></div>
+    <label>Số tiền
+      <div class="money-input-wrap"><input id="transactionAmount" class="money-input" type="text" inputmode="numeric" autocomplete="off" required placeholder="Ví dụ: 150.000" /><span>₫</span></div>
+      <small class="field-hint">Chỉ cần nhập số, hệ thống sẽ tự định dạng.</small>
+    </label>
+    <label>Nội dung<input id="transactionDescription" required maxlength="120" placeholder="Ví dụ: Ăn trưa" /></label>
+    <label>Danh mục<select id="transactionCategory" required></select></label>
+    <label>Ngày<input id="transactionDate" type="date" required /></label>
+    <p class="form-error" id="transactionError" role="alert" hidden></p>
+    <button class="btn primary full" type="submit">Lưu giao dịch</button>
+  </form></div></div>
+
+  <div class="modal" id="categoryModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Thêm danh mục</h3><button class="close-modal" type="button" aria-label="Đóng">×</button></div><form id="categoryForm" novalidate>
+    <label>Tên danh mục<input id="categoryName" required maxlength="30" placeholder="Ví dụ: Học tập" /></label>
+    <label>Loại<select id="categoryType"><option value="expense">Chi tiêu</option><option value="income">Thu nhập</option></select></label>
+    <fieldset class="icon-fieldset">
+      <legend>Chọn biểu tượng</legend>
+      <input id="categoryIcon" type="hidden" value="🛍️" />
+      <div class="icon-picker" id="categoryIconPicker" aria-label="Chọn biểu tượng danh mục"></div>
+    </fieldset>
+    <p class="form-error" id="categoryError" role="alert" hidden></p>
+    <button class="btn primary full" type="submit">Thêm danh mục</button>
+  </form></div></div>
+
+  <div class="modal" id="savingModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Thêm mục tiêu tiết kiệm</h3><button class="close-modal" type="button" aria-label="Đóng">×</button></div><form id="savingForm" novalidate>
+    <label>Tên mục tiêu<input id="savingName" required maxlength="80" placeholder="Ví dụ: Quỹ khẩn cấp" /></label>
+    <label>Số tiền mục tiêu
+      <div class="money-input-wrap"><input id="savingTarget" class="money-input" type="text" inputmode="numeric" autocomplete="off" required placeholder="Ví dụ: 10.000.000" /><span>₫</span></div>
+    </label>
+    <label>Đã tiết kiệm
+      <div class="money-input-wrap"><input id="savingCurrent" class="money-input" type="text" inputmode="numeric" autocomplete="off" value="0" required /><span>₫</span></div>
+    </label>
+    <label>Hạn dự kiến<input id="savingDeadline" type="date" /></label>
+    <p class="form-error" id="savingError" role="alert" hidden></p>
+    <button class="btn primary full" type="submit">Tạo mục tiêu</button>
+  </form></div></div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
