@@ -21,7 +21,7 @@
         <div class="brand-mark large" aria-hidden="true"></div>
         <div>
           <h1>vlaam Finance</h1>
-          <p>Tiết kiệm là quốc sách</p>
+          <p>Tài chính an yên hơn — đồng bộ trên mọi thiết bị.</p>
         </div>
       </div>
 
@@ -69,6 +69,7 @@
         <button class="nav-item" data-section="categories"><span>▦</span> Danh mục</button>
         <button class="nav-item" data-section="budget"><span>◔</span> Ngân sách</button>
         <button class="nav-item" data-section="savings"><span>◎</span> Tiết kiệm</button>
+        <button class="nav-item" data-section="debts"><span>↗</span> Nợ & cho vay</button>
         <button class="nav-item" data-section="reports"><span>▥</span> Báo cáo</button>
         <button class="nav-item" data-section="account"><span>⚙</span> Tài khoản</button>
       </nav>
@@ -104,10 +105,20 @@
 
       <section id="dashboard" class="section active-section">
         <div class="stats-grid">
-          <article class="stat-card dark balance-card"><div class="stat-icon">◫</div><div><span>Tổng số dư</span><strong id="totalBalance">0 ₫</strong><small>Tổng tài sản khả dụng</small></div></article>
+          <article class="stat-card dark balance-card">
+            <div class="stat-icon">◫</div>
+            <div class="stat-card-body"><span>Tiền hiện có</span><strong id="totalBalance">0 ₫</strong><small>Số dư hiện tại sau các giao dịch</small></div>
+            <button class="stat-action" type="button" data-open="balanceModal">Cập nhật</button>
+          </article>
           <article class="stat-card pale-green income-card"><div class="stat-icon">↓</div><div><span>Thu nhập tháng</span><strong id="monthIncome">0 ₫</strong><small>Tiền vào trong tháng</small></div></article>
           <article class="stat-card warm expense-card"><div class="stat-icon">↑</div><div><span>Chi tiêu tháng</span><strong id="monthExpense">0 ₫</strong><small>Tiền ra trong tháng</small></div></article>
           <article class="stat-card blush savings-card"><div class="stat-icon">🌿</div><div><span>Đã tiết kiệm</span><strong id="totalSavings">0 ₫</strong><small id="savingRate">0% thu nhập tháng</small></div></article>
+        </div>
+
+        <div class="debt-summary-grid">
+          <article class="debt-summary-card receivable"><div class="debt-summary-icon">↙</div><div><span>Cho nợ · Phải thu</span><strong id="receivableTotal">0 ₫</strong><small>Tiền người khác còn nợ bạn</small></div></article>
+          <article class="debt-summary-card payable"><div class="debt-summary-icon">↗</div><div><span>Nợ · Phải trả</span><strong id="payableTotal">0 ₫</strong><small>Tiền bạn còn phải trả</small></div></article>
+          <article class="debt-summary-card net"><div class="debt-summary-icon">≈</div><div><span>Chênh lệch công nợ</span><strong id="debtNetTotal">0 ₫</strong><small>Phải thu trừ phải trả</small></div></article>
         </div>
 
         <div class="dashboard-grid">
@@ -158,6 +169,27 @@
         </div>
       </section>
 
+
+      <section id="debts" class="section">
+        <div class="page-heading"><div><h2>Nợ & cho vay</h2><p>Theo dõi tiền người khác nợ bạn và các khoản bạn đang nợ.</p></div><button class="btn primary" data-open="debtModal">＋ Thêm khoản nợ</button></div>
+        <div class="info-note debt-info">Đánh dấu <strong>Đã thu/Đã trả</strong> chỉ đóng khoản công nợ. Nếu tiền thực tế đã vào hoặc ra, hãy thêm giao dịch Thu/Chi tương ứng để “Tiền hiện có” thay đổi.</div>
+        <div class="debt-overview">
+          <article class="card debt-overview-card receivable"><span>Cho nợ · Phải thu</span><strong id="receivableTotalFull">0 ₫</strong><small>Khoản còn phải thu</small></article>
+          <article class="card debt-overview-card payable"><span>Nợ · Phải trả</span><strong id="payableTotalFull">0 ₫</strong><small>Khoản còn phải trả</small></article>
+          <article class="card debt-overview-card net"><span>Chênh lệch</span><strong id="debtNetTotalFull">0 ₫</strong><small>Phải thu − phải trả</small></article>
+        </div>
+        <div class="debt-columns">
+          <section class="card">
+            <div class="category-title"><h3>Người khác nợ tôi</h3><span class="badge income">Phải thu</span></div>
+            <div id="receivableList" class="debt-list"></div>
+          </section>
+          <section class="card">
+            <div class="category-title"><h3>Tôi đang nợ</h3><span class="badge expense">Phải trả</span></div>
+            <div id="payableList" class="debt-list"></div>
+          </section>
+        </div>
+      </section>
+
       <section id="reports" class="section">
         <div class="page-heading"><div><h2>Báo cáo</h2><p>Nhìn tổng quan để điều chỉnh thói quen tài chính.</p></div></div>
         <div class="report-grid"><section class="card"><h3>Cơ cấu chi tiêu</h3><div id="expenseBreakdown"></div></section><section class="card"><h3>Tóm tắt</h3><div id="reportSummary" class="summary-list"></div></section></div>
@@ -176,6 +208,7 @@
             <p>Dữ liệu giao dịch, danh mục, mục tiêu tiết kiệm và cài đặt được lưu trên Supabase.</p>
             <div class="sync-detail"><span>Trạng thái</span><strong id="accountSyncStatus">Đang kiểm tra…</strong></div>
             <div class="sync-detail"><span>Lần tải gần nhất</span><strong id="lastSyncText">—</strong></div>
+            <div class="sync-detail"><span>Số dư gốc</span><strong id="openingBalanceText">0 ₫</strong></div>
             <button id="manualSyncBtn" class="btn primary full">↻ Đồng bộ ngay</button>
           </section>
           <section class="card account-card">
@@ -225,6 +258,31 @@
     <label>Hạn dự kiến<input id="savingDeadline" type="date" /></label>
     <p class="form-error" id="savingError" role="alert" hidden></p>
     <button class="btn primary full" type="submit">Tạo mục tiêu</button>
+  </form></div></div>
+
+
+  <div class="modal" id="balanceModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Cập nhật tiền hiện có</h3><button class="close-modal" type="button" aria-label="Đóng">×</button></div><form id="balanceForm" novalidate>
+    <label>Số tiền hiện có
+      <div class="money-input-wrap"><input id="currentBalanceInput" class="money-input" type="text" inputmode="numeric" autocomplete="off" required placeholder="Ví dụ: 25.000.000" /><span>₫</span></div>
+      <small class="field-hint">Nhập số tiền bạn đang thực sự có lúc này. Ứng dụng sẽ tự điều chỉnh số dư gốc để các giao dịch trước đó không bị tính hai lần.</small>
+    </label>
+    <p class="form-error" id="balanceError" role="alert" hidden></p>
+    <button class="btn primary full" type="submit">Lưu số tiền hiện có</button>
+  </form></div></div>
+
+  <div class="modal" id="debtModal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><h3>Thêm khoản nợ</h3><button class="close-modal" type="button" aria-label="Đóng">×</button></div><form id="debtForm" novalidate>
+    <div class="segmented debt-segmented">
+      <label><input type="radio" name="debtType" value="receivable" checked><span>Cho nợ · Phải thu</span></label>
+      <label><input type="radio" name="debtType" value="payable"><span>Tôi đang nợ</span></label>
+    </div>
+    <label id="debtPersonLabel">Người đang nợ bạn<input id="debtPerson" required maxlength="80" placeholder="Ví dụ: Minh" /></label>
+    <label>Số tiền
+      <div class="money-input-wrap"><input id="debtAmount" class="money-input" type="text" inputmode="numeric" autocomplete="off" required placeholder="Ví dụ: 2.000.000" /><span>₫</span></div>
+    </label>
+    <label>Ghi chú<input id="debtNote" maxlength="160" placeholder="Ví dụ: Mượn tiền mua vé" /></label>
+    <label>Hạn thanh toán<input id="debtDueDate" type="date" /></label>
+    <p class="form-error" id="debtError" role="alert" hidden></p>
+    <button class="btn primary full" type="submit">Lưu khoản nợ</button>
   </form></div></div>
 
   <div class="toast" id="toast"></div>
